@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: gazette-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: gazette_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rootg
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+
+  airflow:
+    image: apache/airflow:2.9.2
+    container_name: gazette-airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://gazette_db:root@mysql:3306/rootg
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    depends_on:
+      - mysql
+    volumes:
+      - ./dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
+    command: standalone
+
+  pipeline:
+    build: .
+    container_name: gazette-pipeline
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: rootg
+      DB_NAME: gazette_db
+    volumes:
+      - ./collect:/app/collect
+    command: sleep infinity
+
+volumes:
+  mysql_data:

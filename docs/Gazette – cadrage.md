@@ -105,17 +105,17 @@ Recommandation : PostgreSQL si le schéma est stable dès le départ ; MongoDB s
 
 **Clustering : comparaison des algorithmes**
 
-|                                               | Agglomératif                                                                       | HDBSCAN                                                              | Graphe + Leiden                                                       |
-| --------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
+|                                               | Agglomératif                                                                      | HDBSCAN                                                              | Graphe + Leiden                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | Principe                                      | Fusionne les articles les plus proches, deux à deux, jusqu'à un seuil de distance | Cherche les zones denses de l'espace des embeddings                  | Relie les articles similaires, puis détecte les communautés du graphe |
-| Paramètres                                    | Seuil de distance, type de liaison                                                 | Taille minimale de groupe, `min_samples` (et réglages UMAP en amont) | Seuil de similarité pour créer une arête, résolution                  |
-| Lecture du réglage                            | Directe : seuil de 0,25 = similarité cosinus d'au moins 0,75                       | Indirecte, liée à la densité                                         | Le seuil est clair, la résolution demande des essais                  |
-| Articles isolés                               | Restent seuls dans leur groupe                                                     | Classés en bruit                                                     | Restent sans voisin                                                   |
-| Fusion d'événements proches                   | Limitée avec la liaison complete                                                   | Possible si les deux sujets forment une zone dense commune           | Limitée, les communautés se séparent quand les liens sont faibles     |
-| Volume actuel (quelques centaines d'articles) | Bien adapté                                                                        | Estimation de densité peu fiable, beaucoup d'articles en bruit       | Bien adapté                                                           |
-| Dimension 768                                 | Pas de souci en cosinus                                                            | Réduction UMAP souvent nécessaire                                    | Pas de souci en cosinus                                               |
-| Reproductibilité                              | Résultat identique à chaque exécution                                              | Dépend de la graine UMAP                                             | Dépend de la graine de Leiden                                         |
-| Mise en œuvre                                 | scikit-learn                                                                       | scikit-learn (≥ 1.3) ou `hdbscan`, plus `umap-learn`                 | `igraph` et `leidenalg`                                               |
+| Paramètres                                    | Seuil de distance, type de liaison                                                | Taille minimale de groupe, `min_samples` (et réglages UMAP en amont) | Seuil de similarité pour créer une arête, résolution                  |
+| Lecture du réglage                            | Directe : seuil de 0,25 = similarité cosinus d'au moins 0,75                      | Indirecte, liée à la densité                                         | Le seuil est clair, la résolution demande des essais                  |
+| Articles isolés                               | Restent seuls dans leur groupe                                                    | Classés en bruit                                                     | Restent sans voisin                                                   |
+| Fusion d'événements proches                   | Limitée avec la liaison complete                                                  | Possible si les deux sujets forment une zone dense commune           | Limitée, les communautés se séparent quand les liens sont faibles     |
+| Volume actuel (quelques centaines d'articles) | Bien adapté                                                                       | Estimation de densité peu fiable, beaucoup d'articles en bruit       | Bien adapté                                                           |
+| Dimension 768                                 | Pas de souci en cosinus                                                           | Réduction UMAP souvent nécessaire                                    | Pas de souci en cosinus                                               |
+| Reproductibilité                              | Résultat identique à chaque exécution                                             | Dépend de la graine UMAP                                             | Dépend de la graine de Leiden                                         |
+| Mise en œuvre                                 | scikit-learn                                                                      | scikit-learn (≥ 1.3) ou `hdbscan`, plus `umap-learn`                 | `igraph` et `leidenalg`                                               |
 
 Sur notre volume, l'agglomératif est le plus simple à régler et à expliquer : un seul seuil, qui correspond à une similarité qu'on peut vérifier à la main sur quelques paires d'articles. Le graphe avec Leiden donne des résultats proches et se montre un peu plus robuste quand quelques articles font le pont entre deux sujets, au prix d'un paramètre supplémentaire. HDBSCAN reste intéressant si le nombre de sources augmente beaucoup, mais avec quelques centaines d'articles par jour, il a tendance à laisser trop d'articles de côté. Le choix final se fera sur un échantillon annoté de deux ou trois journées, en comparant les regroupements obtenus avec ceux attendus.
 
@@ -207,6 +207,16 @@ Les embeddings ne sont pas stockés en base : ils sont calculés dans le datalak
 | Clustering trop agressif                   | Deux événements distincts fusionnés  | Affinage par entités nommées + seuil à calibrer sur données réelles |
 | Latence LLM (si résumé activé plus tard)   | Edition publiée en retard            | Hors scope v1 ; anticiper en lançant le pipeline à 5h               |
 | Droits voisins                             | Plateforme bloquée par un éditeur    | Ne conserver que le minimum légal dès le départ                     |
+
+# Supervision du pipeline
+
+Airflow assure nativement la supervision du pipeline :
+• historique complet des runs (statut, durée, logs par étape)
+• alertes email automatiques en cas d'échec
+• interface web avec le détail de chaque tâche
+• relances configurables sur erreur
+
+Prometheus + Grafana ont été évalués et écartés pour la v1. Cette stack est pertinente pour surveiller plusieurs services en continu et construire des tableaux de bord de métriques métier (volume d'articles par source, dérive du clustering…). Elle demande d'installer et configurer deux outils supplémentaires et d'exposer des métriques depuis Airflow. Pour un pipeline quotidien unique, le coût de mise en place n'est pas justifié. Elle pourra être ajoutée si le projet passe en production avec des SLA stricts.
 
 ## Rôles dans l'équipe
 
