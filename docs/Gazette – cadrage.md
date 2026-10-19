@@ -1,6 +1,5 @@
 # Gazette – Plan de cadrage
 
-Oct 19, 2026 · @Rayan Chentouf
 
 Plateforme de revue de presse automatisée : collecte chaque matin les articles de 4 médias, les regroupe par événement et publie une édition structurée (titre, résumé, sources, liens).
 
